@@ -1,4 +1,4 @@
-/**
+/*!
  * QUnit v1.12.0pre - A JavaScript Unit Testing Framework
  *
  * http://qunitjs.com
@@ -10,8 +10,13 @@
 
 (function( window ) {
 
+/**
+ * Namespace for QUnit.
+ *
+ * @class QUnit
+ * @singleton
+ */
 var QUnit,
-	assert,
 	config,
 	onErrorFnPrev,
 	testId = 0,
@@ -33,6 +38,7 @@ var QUnit,
 			}
 		}())
 	},
+
 	/**
 	 * Provides a normalized error string, correcting an issue
 	 * with IE 7 (and prior) where Error.prototype.toString is
@@ -40,8 +46,10 @@ var QUnit,
 	 *
 	 * Based on http://es5.github.com/#x15.11.4.4
 	 *
-	 * @param {String|Error} error
-	 * @return {String} error message
+	 * @method errorString
+	 * @private
+	 * @param {string|Error} error
+	 * @return {string} error message
 	 */
 	errorString = function( error ) {
 		var name, message,
@@ -62,10 +70,13 @@ var QUnit,
 			return errorString;
 		}
 	},
+
 	/**
 	 * Makes a clone of an object using only Array or Object as base,
 	 * and copies over the own enumerable properties.
 	 *
+	 * @method objectValues
+	 * @private
 	 * @param {Object} obj
 	 * @return {Object} New object with only the own properties (recursively).
 	 */
@@ -83,344 +94,44 @@ var QUnit,
 		return vals;
 	};
 
-function Test( settings ) {
-	extend( this, settings );
-	this.assertions = [];
-	this.testNumber = ++Test.count;
-}
-
-Test.count = 0;
-
-Test.prototype = {
-	init: function() {
-		var a, b, li,
-			tests = id( "qunit-tests" );
-
-		if ( tests ) {
-			b = document.createElement( "strong" );
-			b.innerHTML = this.nameHtml;
-
-			// `a` initialized at top of scope
-			a = document.createElement( "a" );
-			a.innerHTML = "Rerun";
-			a.href = QUnit.url({ testNumber: this.testNumber });
-
-			li = document.createElement( "li" );
-			li.appendChild( b );
-			li.appendChild( a );
-			li.className = "running";
-			li.id = this.id = "qunit-test-output" + testId++;
-
-			tests.appendChild( li );
-		}
-	},
-	setup: function() {
-		if (
-			// Emit moduleStart when we're switching from one module to another
-			this.module !== config.previousModule ||
-				// They could be equal (both undefined) but if the previousModule property doesn't
-				// yet exist it means this is the first test in a suite that isn't wrapped in a
-				// module, in which case we'll just emit a moduleStart event for 'undefined'.
-				// Without this, reporters can get testStart before moduleStart  which is a problem.
-				!hasOwn.call( config, "previousModule" )
-		) {
-			if ( hasOwn.call( config, "previousModule" ) ) {
-				runLoggingCallbacks( "moduleDone", QUnit, {
-					name: config.previousModule,
-					failed: config.moduleStats.bad,
-					passed: config.moduleStats.all - config.moduleStats.bad,
-					total: config.moduleStats.all
-				});
-			}
-			config.previousModule = this.module;
-			config.moduleStats = { all: 0, bad: 0 };
-			runLoggingCallbacks( "moduleStart", QUnit, {
-				name: this.module
-			});
-		}
-
-		config.current = this;
-
-		this.testEnvironment = extend({
-			setup: function() {},
-			teardown: function() {}
-		}, this.moduleTestEnvironment );
-
-		this.started = +new Date();
-		runLoggingCallbacks( "testStart", QUnit, {
-			name: this.testName,
-			module: this.module
-		});
-
-		/*jshint camelcase:false */
-
-
-		/**
-		 * Expose the current test environment.
-		 *
-		 * @deprecated since 1.12.0: Use QUnit.config.current.testEnvironment instead.
-		 */
-		QUnit.current_testEnvironment = this.testEnvironment;
-
-		/*jshint camelcase:true */
-
-		if ( !config.pollution ) {
-			saveGlobal();
-		}
-		if ( config.notrycatch ) {
-			this.testEnvironment.setup.call( this.testEnvironment, QUnit.assert );
-			return;
-		}
-		try {
-			this.testEnvironment.setup.call( this.testEnvironment, QUnit.assert );
-		} catch( e ) {
-			QUnit.pushFailure( "Setup failed on " + this.testName + ": " + ( e.message || e ), extractStacktrace( e, 1 ) );
-		}
-	},
-	run: function() {
-		config.current = this;
-
-		var running = id( "qunit-testresult" );
-
-		if ( running ) {
-			running.innerHTML = "Running: <br/>" + this.nameHtml;
-		}
-
-		if ( this.async ) {
-			QUnit.stop();
-		}
-
-		this.callbackStarted = +new Date();
-
-		if ( config.notrycatch ) {
-			this.callback.call( this.testEnvironment, QUnit.assert );
-			this.callbackRuntime = +new Date() - this.callbackStarted;
-			return;
-		}
-
-		try {
-			this.callback.call( this.testEnvironment, QUnit.assert );
-			this.callbackRuntime = +new Date() - this.callbackStarted;
-		} catch( e ) {
-			this.callbackRuntime = +new Date() - this.callbackStarted;
-
-			QUnit.pushFailure( "Died on test #" + (this.assertions.length + 1) + " " + this.stack + ": " + ( e.message || e ), extractStacktrace( e, 0 ) );
-			// else next test will carry the responsibility
-			saveGlobal();
-
-			// Restart the tests if they're blocking
-			if ( config.blocking ) {
-				QUnit.start();
-			}
-		}
-	},
-	teardown: function() {
-		config.current = this;
-		if ( config.notrycatch ) {
-			if ( typeof this.callbackRuntime === "undefined" ) {
-				this.callbackRuntime = +new Date() - this.callbackStarted;
-			}
-			this.testEnvironment.teardown.call( this.testEnvironment, QUnit.assert );
-			return;
-		} else {
-			try {
-				this.testEnvironment.teardown.call( this.testEnvironment, QUnit.assert );
-			} catch( e ) {
-				QUnit.pushFailure( "Teardown failed on " + this.testName + ": " + ( e.message || e ), extractStacktrace( e, 1 ) );
-			}
-		}
-		checkPollution();
-	},
-	finish: function() {
-		config.current = this;
-		if ( config.requireExpects && this.expected === null ) {
-			QUnit.pushFailure( "Expected number of assertions to be defined, but expect() was not called.", this.stack );
-		} else if ( this.expected !== null && this.expected !== this.assertions.length ) {
-			QUnit.pushFailure( "Expected " + this.expected + " assertions, but " + this.assertions.length + " were run", this.stack );
-		} else if ( this.expected === null && !this.assertions.length ) {
-			QUnit.pushFailure( "Expected at least one assertion, but none were run - call expect(0) to accept zero assertions.", this.stack );
-		}
-
-		var i, assertion, a, b, time, li, ol,
-			test = this,
-			good = 0,
-			bad = 0,
-			tests = id( "qunit-tests" );
-
-		this.runtime = +new Date() - this.started;
-		config.stats.all += this.assertions.length;
-		config.moduleStats.all += this.assertions.length;
-
-		if ( tests ) {
-			ol = document.createElement( "ol" );
-			ol.className = "qunit-assert-list";
-
-			for ( i = 0; i < this.assertions.length; i++ ) {
-				assertion = this.assertions[i];
-
-				li = document.createElement( "li" );
-				li.className = assertion.result ? "pass" : "fail";
-				li.innerHTML = assertion.message || ( assertion.result ? "okay" : "failed" );
-				ol.appendChild( li );
-
-				if ( assertion.result ) {
-					good++;
-				} else {
-					bad++;
-					config.stats.bad++;
-					config.moduleStats.bad++;
-				}
-			}
-
-			// store result when possible
-			if ( QUnit.config.reorder && defined.sessionStorage ) {
-				if ( bad ) {
-					sessionStorage.setItem( "qunit-test-" + this.module + "-" + this.testName, bad );
-				} else {
-					sessionStorage.removeItem( "qunit-test-" + this.module + "-" + this.testName );
-				}
-			}
-
-			if ( bad === 0 ) {
-				addClass( ol, "qunit-collapsed" );
-			}
-
-			// `b` initialized at top of scope
-			b = document.createElement( "strong" );
-			b.innerHTML = this.nameHtml + " <b class='counts'>(<b class='failed'>" + bad + "</b>, <b class='passed'>" + good + "</b>, " + this.assertions.length + ")</b>";
-
-			addEvent(b, "click", function() {
-				var next = b.parentNode.lastChild,
-					collapsed = hasClass( next, "qunit-collapsed" );
-				( collapsed ? removeClass : addClass )( next, "qunit-collapsed" );
-			});
-
-			addEvent(b, "dblclick", function( e ) {
-				var target = e && e.target ? e.target : window.event.srcElement;
-				if ( target.nodeName.toLowerCase() === "span" || target.nodeName.toLowerCase() === "b" ) {
-					target = target.parentNode;
-				}
-				if ( window.location && target.nodeName.toLowerCase() === "strong" ) {
-					window.location = QUnit.url({ testNumber: test.testNumber });
-				}
-			});
-
-			// `time` initialized at top of scope
-			time = document.createElement( "span" );
-			time.className = "runtime";
-			time.innerHTML = this.runtime + " ms";
-
-			// `li` initialized at top of scope
-			li = id( this.id );
-			li.className = bad ? "fail" : "pass";
-			li.removeChild( li.firstChild );
-			a = li.firstChild;
-			li.appendChild( b );
-			li.appendChild( a );
-			li.appendChild( time );
-			li.appendChild( ol );
-
-		} else {
-			for ( i = 0; i < this.assertions.length; i++ ) {
-				if ( !this.assertions[i].result ) {
-					bad++;
-					config.stats.bad++;
-					config.moduleStats.bad++;
-				}
-			}
-		}
-
-		runLoggingCallbacks( "testDone", QUnit, {
-			name: this.testName,
-			module: this.module,
-			failed: bad,
-			passed: this.assertions.length - bad,
-			total: this.assertions.length,
-			duration: this.runtime
-		});
-
-		QUnit.reset();
-
-		config.current = undefined;
-	},
-
-	queue: function() {
-		var bad,
-			test = this;
-
-		synchronize(function() {
-			test.init();
-		});
-		function run() {
-			// each of these can by async
-			synchronize(function() {
-				test.setup();
-			});
-			synchronize(function() {
-				test.run();
-			});
-			synchronize(function() {
-				test.teardown();
-			});
-			synchronize(function() {
-				test.finish();
-			});
-		}
-
-		// `bad` initialized at top of scope
-		// defer when previous test run passed, if storage is available
-		bad = QUnit.config.reorder && defined.sessionStorage &&
-						+sessionStorage.getItem( "qunit-test-" + this.module + "-" + this.testName );
-
-		if ( bad ) {
-			run();
-		} else {
-			synchronize( run, true );
-		}
-	}
-};
-
 // Root QUnit object.
 // `QUnit` initialized at top of scope
 QUnit = {
 
-	// call on start of module test to prepend name to all tests
+	/**
+	 * Start a new module for grouping tests.
+	 *
+	 * @method
+	 * @param {string} name
+	 * @param {Object} testEnvironment
+	 */
 	module: function( name, testEnvironment ) {
 		config.currentModule = name;
 		config.currentModuleTestEnvironment = testEnvironment;
 		config.modules[name] = true;
 	},
 
-	asyncTest: function( testName, expected, callback ) {
-		if ( arguments.length === 2 ) {
-			callback = expected;
-			expected = null;
-		}
-
-		QUnit.test( testName, expected, callback, true );
-	},
-
-	test: function( testName, expected, callback, async ) {
-		var test,
-			nameHtml = "<span class='test-name'>" + escapeText( testName ) + "</span>";
+	/**
+	 * Create a test.
+	 *
+	 * @param {string} name
+	 * @param {number} [expected]
+	 * @param {Function} callback
+	 */
+	test: function( name, expected, callback ) {
+		var test;
 
 		if ( arguments.length === 2 ) {
 			callback = expected;
 			expected = null;
-		}
-
-		if ( config.currentModule ) {
-			nameHtml = "<span class='module-name'>" + escapeText( config.currentModule ) + "</span>: " + nameHtml;
 		}
 
 		test = new Test({
-			nameHtml: nameHtml,
-			testName: testName,
-			expected: expected,
-			async: async,
-			callback: callback,
 			module: config.currentModule,
 			moduleTestEnvironment: config.currentModuleTestEnvironment,
+			name: name,
+			expected: expected,
+			callback: callback,
 			stack: sourceFromStacktrace( 2 )
 		});
 
@@ -429,15 +140,6 @@ QUnit = {
 		}
 
 		test.queue();
-	},
-
-	// Specify the number of expected assertions to guarantee that failed test (no assertions are run at all) don't slip through.
-	expect: function( asserts ) {
-		if (arguments.length === 1) {
-			config.current.expected = asserts;
-		} else {
-			return config.current.expected;
-		}
 	},
 
 	start: function( count ) {
@@ -496,191 +198,6 @@ QUnit = {
 			}, config.testTimeout );
 		}
 	}
-};
-
-// `assert` initialized at top of scope
-// Assert helpers
-// All of these must either call QUnit.push() or manually do:
-// - runLoggingCallbacks( "log", .. );
-// - config.current.assertions.push({ .. });
-// We attach it to the QUnit object *after* we expose the public API,
-// otherwise `assert` will become a global variable in browsers (#341).
-assert = {
-	/**
-	 * Asserts rough true-ish result.
-	 * @name ok
-	 * @function
-	 * @example ok( "asdfasdf".length > 5, "There must be at least 5 chars" );
-	 */
-	ok: function( result, msg ) {
-		if ( !config.current ) {
-			throw new Error( "ok() assertion outside test context, was " + sourceFromStacktrace(2) );
-		}
-		result = !!result;
-		msg = msg || (result ? "okay" : "failed" );
-
-		var source,
-			details = {
-				module: config.current.module,
-				name: config.current.testName,
-				result: result,
-				message: msg
-			};
-
-		msg = "<span class='test-message'>" + escapeText( msg ) + "</span>";
-
-		if ( !result ) {
-			source = sourceFromStacktrace( 2 );
-			if ( source ) {
-				details.source = source;
-				msg += "<table><tr class='test-source'><th>Source: </th><td><pre>" + escapeText( source ) + "</pre></td></tr></table>";
-			}
-		}
-		runLoggingCallbacks( "log", QUnit, details );
-		config.current.assertions.push({
-			result: result,
-			message: msg
-		});
-	},
-
-	/**
-	 * Assert that the first two arguments are equal, with an optional message.
-	 * Prints out both actual and expected values.
-	 * @name equal
-	 * @function
-	 * @example equal( format( "Received {0} bytes.", 2), "Received 2 bytes.", "format() replaces {0} with next argument" );
-	 */
-	equal: function( actual, expected, message ) {
-		/*jshint eqeqeq:false */
-		QUnit.push( expected == actual, actual, expected, message );
-	},
-
-	/**
-	 * @name notEqual
-	 * @function
-	 */
-	notEqual: function( actual, expected, message ) {
-		/*jshint eqeqeq:false */
-		QUnit.push( expected != actual, actual, expected, message );
-	},
-
-	/**
-	 * @name propEqual
-	 * @function
-	 */
-	propEqual: function( actual, expected, message ) {
-		actual = objectValues(actual);
-		expected = objectValues(expected);
-		QUnit.push( QUnit.equiv(actual, expected), actual, expected, message );
-	},
-
-	/**
-	 * @name notPropEqual
-	 * @function
-	 */
-	notPropEqual: function( actual, expected, message ) {
-		actual = objectValues(actual);
-		expected = objectValues(expected);
-		QUnit.push( !QUnit.equiv(actual, expected), actual, expected, message );
-	},
-
-	/**
-	 * @name deepEqual
-	 * @function
-	 */
-	deepEqual: function( actual, expected, message ) {
-		QUnit.push( QUnit.equiv(actual, expected), actual, expected, message );
-	},
-
-	/**
-	 * @name notDeepEqual
-	 * @function
-	 */
-	notDeepEqual: function( actual, expected, message ) {
-		QUnit.push( !QUnit.equiv(actual, expected), actual, expected, message );
-	},
-
-	/**
-	 * @name strictEqual
-	 * @function
-	 */
-	strictEqual: function( actual, expected, message ) {
-		QUnit.push( expected === actual, actual, expected, message );
-	},
-
-	/**
-	 * @name notStrictEqual
-	 * @function
-	 */
-	notStrictEqual: function( actual, expected, message ) {
-		QUnit.push( expected !== actual, actual, expected, message );
-	},
-
-	"throws": function( block, expected, message ) {
-		var actual,
-			expectedOutput = expected,
-			ok = false;
-
-		// 'expected' is optional
-		if ( typeof expected === "string" ) {
-			message = expected;
-			expected = null;
-		}
-
-		config.current.ignoreGlobalErrors = true;
-		try {
-			block.call( config.current.testEnvironment );
-		} catch (e) {
-			actual = e;
-		}
-		config.current.ignoreGlobalErrors = false;
-
-		if ( actual ) {
-			// we don't want to validate thrown error
-			if ( !expected ) {
-				ok = true;
-				expectedOutput = null;
-			// expected is a regexp
-			} else if ( QUnit.objectType( expected ) === "regexp" ) {
-				ok = expected.test( errorString( actual ) );
-			// expected is a constructor
-			} else if ( actual instanceof expected ) {
-				ok = true;
-			// expected is a validation function which returns true is validation passed
-			} else if ( expected.call( {}, actual ) === true ) {
-				expectedOutput = null;
-				ok = true;
-			}
-
-			QUnit.push( ok, actual, expectedOutput, message );
-		} else {
-			QUnit.pushFailure( message, null, "No exception was thrown." );
-		}
-	}
-};
-
-/**
- * @deprecated since 1.8.0
- * Kept assertion helpers in root for backwards compatibility.
- */
-extend( QUnit, assert );
-
-/**
- * @deprecated since 1.9.0
- * Kept root "raises()" for backwards compatibility.
- * (Note that we don't introduce assert.raises).
- */
-QUnit.raises = assert[ "throws" ];
-
-/**
- * @deprecated since 1.0.0, replaced with error pushes since 1.3.0
- * Kept to avoid TypeErrors for undefined methods.
- */
-QUnit.equals = function() {
-	QUnit.push( false, false, false, "QUnit.equals has been deprecated since 2009 (e88049a0), use QUnit.equal instead" );
-};
-QUnit.same = function() {
-	QUnit.push( false, false, false, "QUnit.same has been deprecated since 2009 (e88049a0), use QUnit.deepEqual instead" );
 };
 
 // We want access to the constructor's prototype
@@ -743,7 +260,14 @@ config = {
 	testStart: [],
 	testDone: [],
 	moduleStart: [],
-	moduleDone: []
+	moduleDone: [],
+
+	// Current test: Test object
+	current: null,
+	// Current module: Name (string)
+	currentModule: null,
+	// Current module: Environment (Object)
+	currentModuleTestEnvironment: null
 };
 
 // Export global variables, unless an 'exports' object exists,
@@ -791,7 +315,7 @@ if ( typeof exports === "undefined" ) {
 // Extend QUnit object,
 // these after set here because they should not be exposed as global functions
 extend( QUnit, {
-	assert: assert,
+	Assertion: Assertion,
 
 	config: config,
 
@@ -906,53 +430,6 @@ extend( QUnit, {
 		return undefined;
 	},
 
-	push: function( result, actual, expected, message ) {
-		if ( !config.current ) {
-			throw new Error( "assertion outside test context, was " + sourceFromStacktrace() );
-		}
-
-		var output, source,
-			details = {
-				module: config.current.module,
-				name: config.current.testName,
-				result: result,
-				message: message,
-				actual: actual,
-				expected: expected
-			};
-
-		message = escapeText( message ) || ( result ? "okay" : "failed" );
-		message = "<span class='test-message'>" + message + "</span>";
-		output = message;
-
-		if ( !result ) {
-			expected = escapeText( QUnit.jsDump.parse(expected) );
-			actual = escapeText( QUnit.jsDump.parse(actual) );
-			output += "<table><tr class='test-expected'><th>Expected: </th><td><pre>" + expected + "</pre></td></tr>";
-
-			if ( actual !== expected ) {
-				output += "<tr class='test-actual'><th>Result: </th><td><pre>" + actual + "</pre></td></tr>";
-				output += "<tr class='test-diff'><th>Diff: </th><td><pre>" + QUnit.diff( expected, actual ) + "</pre></td></tr>";
-			}
-
-			source = sourceFromStacktrace();
-
-			if ( source ) {
-				details.source = source;
-				output += "<tr class='test-source'><th>Source: </th><td><pre>" + escapeText( source ) + "</pre></td></tr>";
-			}
-
-			output += "</table>";
-		}
-
-		runLoggingCallbacks( "log", QUnit, details );
-
-		config.current.assertions.push({
-			result: !!result,
-			message: output
-		});
-	},
-
 	pushFailure: function( message, source, actual ) {
 		if ( !config.current ) {
 			throw new Error( "pushFailure() assertion outside test context, was " + sourceFromStacktrace(2) );
@@ -961,7 +438,7 @@ extend( QUnit, {
 		var output,
 			details = {
 				module: config.current.module,
-				name: config.current.testName,
+				name: config.current.name,
 				result: false,
 				message: message
 			};
@@ -983,7 +460,7 @@ extend( QUnit, {
 
 		output += "</table>";
 
-		runLoggingCallbacks( "log", QUnit, details );
+		runLoggingCallbacks( "log", details );
 
 		config.current.assertions.push({
 			result: false,
@@ -1015,13 +492,11 @@ extend( QUnit, {
 	// load, equiv, jsDump, diff: Attached later
 });
 
-/**
- * @deprecated: Created for backwards compatibility with test runner that set the hook function
- * into QUnit.{hook}, instead of invoking it and passing the hook function.
- * QUnit.constructor is set to the empty F() above so that we can add to it's prototype here.
- * Doing this allows us to tell if the following methods have been overwritten on the actual
- * QUnit object.
- */
+// @deprecated: Created for backwards compatibility with test runner that set the hook function
+// into QUnit.{hook}, instead of invoking it and passing the hook function.
+// QUnit.constructor is set to the empty F() above so that we can add to it's prototype here.
+// Doing this allows us to tell if the following methods have been overwritten on the actual
+// QUnit object.
 extend( QUnit.constructor.prototype, {
 
 	// Logging callbacks; all receive a single argument with the listed properties
@@ -1052,7 +527,7 @@ if ( typeof document === "undefined" || document.readyState === "complete" ) {
 }
 
 QUnit.load = function() {
-	runLoggingCallbacks( "begin", QUnit, {} );
+	runLoggingCallbacks( "begin", {} );
 
 	// Initialize the config, saving the execution queue
 	var banner, filter, i, label, len, main, ol, toolbar, userAgent, val,
@@ -1246,7 +721,7 @@ function done() {
 
 	// Log the last module results
 	if ( config.currentModule ) {
-		runLoggingCallbacks( "moduleDone", QUnit, {
+		runLoggingCallbacks( "moduleDone", {
 			name: config.currentModule,
 			failed: config.moduleStats.bad,
 			passed: config.moduleStats.all - config.moduleStats.bad,
@@ -1305,7 +780,7 @@ function done() {
 		window.scrollTo(0, 0);
 	}
 
-	runLoggingCallbacks( "done", QUnit, {
+	runLoggingCallbacks( "done", {
 		failed: config.stats.bad,
 		passed: passed,
 		total: config.stats.all,
@@ -1313,12 +788,17 @@ function done() {
 	});
 }
 
-/** @return Boolean: true if this test should be ran */
+/**
+ * @method
+ * @private
+ * @param {Test} test
+ * @return {boolean} True if this test should be ran
+ */
 function validTest( test ) {
 	var include,
 		filter = config.filter && config.filter.toLowerCase(),
 		module = config.module && config.module.toLowerCase(),
-		fullName = (test.module + ": " + test.testName).toLowerCase();
+		fullName = (test.module + ": " + test.name).toLowerCase();
 
 	// Internally-generated tests are always valid
 	if ( test.callback && test.callback.validTest === validTest ) {
@@ -1393,6 +873,12 @@ function extractStacktrace( e, offset ) {
 		return e.sourceURL + ":" + e.line;
 	}
 }
+
+/**
+ * @method
+ * @private
+ * @return {string}
+ */
 function sourceFromStacktrace( offset ) {
 	try {
 		throw new Error();
@@ -1403,6 +889,9 @@ function sourceFromStacktrace( offset ) {
 
 /**
  * Escape text for attribute or text content.
+ *
+ * @method
+ * @private
  */
 function escapeText( s ) {
 	if ( !s ) {
@@ -1582,20 +1071,26 @@ function registerLoggingCallback( key ) {
 }
 
 // Supports deprecated method of completely overwriting logging callbacks
-function runLoggingCallbacks( key, scope, args ) {
+function runLoggingCallbacks( key, args ) {
 	var i, callbacks;
 	if ( QUnit.hasOwnProperty( key ) ) {
-		QUnit[ key ].call(scope, args );
+		QUnit[ key ].call( QUnit, args );
 	} else {
 		callbacks = config[ key ];
 		for ( i = 0; i < callbacks.length; i++ ) {
-			callbacks[ i ].call( scope, args );
+			callbacks[ i ].call( QUnit, args );
 		}
 	}
 }
 
-// Test for equality any JavaScript type.
-// Author: Philippe Rathé <prathe@gmail.com>
+/**
+ * Test for equality any JavaScript type.
+ * Author: Philippe Rathé <prathe@gmail.com>
+ *
+ * @method
+ * @param {Mixed} a
+ * @param {Mixed} b
+ */
 QUnit.equiv = (function() {
 
 	// Call the o related callback with the given arguments.
@@ -1803,14 +1298,17 @@ QUnit.equiv = (function() {
 }());
 
 /**
- * jsDump Copyright (c) 2008 Ariel Flesler - aflesler(at)gmail(dot)com |
- * http://flesler.blogspot.com Licensed under BSD
- * (http://www.opensource.org/licenses/bsd-license.php) Date: 5/15/2008
+ * Advanced and extensible data dumping for Javascript.
  *
- * @projectDescription Advanced and extensible data dumping for Javascript.
- * @version 1.0.0
- * @author Ariel Flesler
- * @link {http://flesler.blogspot.com/2008/05/jsdump-pretty-dump-of-any-javascript.html}
+ * jsDump Copyright (c) 2008 Ariel Flesler - aflesler(at)gmail(dot)com http://flesler.blogspot.com
+ *
+ * - Licensed under [BSD](http://www.opensource.org/licenses/bsd-license.php)
+ * - Version: 1.0.0 (2008-05-15)
+ * - Author: Ariel Flesler
+ * - Source: http://flesler.blogspot.com/2008/05/jsdump-pretty-dump-of-any-javascript.html
+ *
+ * @class
+ * @singleton
  */
 QUnit.jsDump = (function() {
 	function quote( str ) {
@@ -1843,7 +1341,12 @@ QUnit.jsDump = (function() {
 
 	var reName = /^function (\w+)/,
 		jsDump = {
-			// type is used mostly internally, you can fix a (custom)type in advance
+			/**
+			 * @param {Mixed} obj
+			 * @param {string} type Type is used mostly internally, you can fix a (custom)type in advance
+			 * @param {Array} [stack]
+			 * @return parser
+			 */
 			parse: function( obj, type, stack ) {
 				stack = stack || [ ];
 				var inStack, res,
@@ -1915,6 +1418,11 @@ QUnit.jsDump = (function() {
 			down: function( a ) {
 				this.depth -= a || 1;
 			},
+
+			/**
+			 * @param {string} name
+			 * @param {string|Function} parser
+			 */
 			setParser: function( name, parser ) {
 				this.parsers[name] = parser;
 			},
@@ -1924,7 +1432,10 @@ QUnit.jsDump = (function() {
 			join: join,
 			//
 			depth: 1,
-			// This is the list of parsers, to modify them, use jsDump.setParser
+			/**
+			 * List of parsers, to modify them, use #setParser
+			 * @type {Object}
+			 */
 			parsers: {
 				window: "[Window]",
 				document: "[Document]",
@@ -2058,9 +1569,14 @@ function inArray( elem, array ) {
  * More Info:
  *  http://ejohn.org/projects/javascript-diff-algorithm/
  *
- * Usage: QUnit.diff(expected, actual)
+ * Eample:
+ *     QUnit.diff( "the quick brown fox jumped over", "the quick fox jumps over" );
+ *     // "the  quick <del>brown </del> fox <del>jumped </del><ins>jumps </ins> over"
  *
- * QUnit.diff( "the quick brown fox jumped over", "the quick fox jumps over" ) == "the  quick <del>brown </del> fox <del>jumped </del><ins>jumps </ins> over"
+ * @method
+ * @param {Mixed} expected
+ * @param {Mixed} actual
+ * @return {string} HTML
  */
 QUnit.diff = (function() {
 	/*jshint eqeqeq:false, eqnull:true */
@@ -2195,6 +1711,589 @@ QUnit.diff = (function() {
 		return str;
 	};
 }());
+
+/**
+ * A Test object represents a test in the test suite. It contains
+ * assertions and can be grouped with one or more other tests
+ * by being associated wth a module.
+ *
+ * @class QUnit.Test
+ * @alternateClassName Test
+ * @private
+ *
+ * @constructor
+ * @param {Object} settings
+ * @param {string|null} settings.module
+ * @param {Object|null} settings.moduleTestEnvironment
+ * @param {string} settings.name
+ * @param {number|null} settings.expected
+ * @param {Function} settings.callback
+ * @param {string} settings.stack
+ */
+function Test( settings ) {
+	var nameHtml;
+
+	extend( this, settings );
+
+	nameHtml = "<span class='test-name'>" + escapeText( this.name ) + "</span>";
+	if ( this.module ) {
+		nameHtml = "<span class='module-name'>" + escapeText( this.module ) + "</span>: " + nameHtml;
+	}
+
+	this.nameHtml = nameHtml;
+
+	this.assertions = [];
+	this.testNumber = ++Test.count;
+	this.pending = false;
+	this.assert = new Assertion( this );
+}
+
+Test.count = 0;
+
+Test.prototype = {
+	constructor: Test,
+
+	/**
+	 * Get or set the number of expected assertions.
+	 *
+	 * @method
+	 * @param {number} count
+	 * @return {number|null}
+	 */
+	expect: function( count ) {
+		if ( arguments.length === 1 ) {
+			this.expected = count;
+		}
+		return this.expected;
+	},
+
+	/**
+	 * Turn this test into an asynchronous test.
+	 *
+	 * @return {Function}
+	 */
+	async: function () {
+		var test = this;
+		test.pending = true;
+		return function () {
+			test.pending = false;
+			// FIXME: Progress callback
+		};
+	},
+
+	/**
+	 * Add the result of an assertion to this test.
+	 *
+	 * @param {Object} details
+	 * @param {boolean} details.result
+	 * @param {Mixed} details.actual
+	 * @param {Mixed} details.expected
+	 * @param {string|undefined} [details.message]
+	 */
+	push: function( details ) {
+		var outputHtml, actualHtml, expectedHtml, source;
+
+		// Default
+		details.message = details.message || ( details.result ? "okay" : "failed" );
+
+		// Add test and module
+		details.moduleName = this.module;
+		details.testName = this.name;
+
+		outputHtml = "<span class='test-message'>" + details.message + "</span>";
+
+		if ( !details.result ) {
+			actualHtml = escapeText( QUnit.jsDump.parse( details.actual ) );
+			expectedHtml = escapeText( QUnit.jsDump.parse( details.expected ) );
+			outputHtml += "<table><tr class='test-expected'><th>Expected: </th><td><pre>" + expectedHtml + "</pre></td></tr>";
+
+			if ( actualHtml !== expectedHtml ) {
+				outputHtml += "<tr class='test-actual'><th>Actual: </th><td><pre>" + actualHtml + "</pre></td></tr>";
+				outputHtml += "<tr class='test-diff'><th>Diff: </th><td><pre>" + QUnit.diff( details.expected, details.actual ) + "</pre></td></tr>";
+			}
+
+			source = sourceFromStacktrace();
+
+			if ( source ) {
+				details.source = source;
+				outputHtml += "<tr class='test-source'><th>Source: </th><td><pre>" + escapeText( source ) + "</pre></td></tr>";
+			}
+
+			outputHtml += "</table>";
+		}
+
+		runLoggingCallbacks( "log", details );
+
+		this.assertions.push( details );
+	},
+
+	init: function() {
+		var a, b, li,
+			tests = id( "qunit-tests" );
+
+		if ( tests ) {
+			b = document.createElement( "strong" );
+			b.innerHTML = this.nameHtml;
+
+			// `a` initialized at top of scope
+			a = document.createElement( "a" );
+			a.innerHTML = "Rerun";
+			a.href = QUnit.url({ testNumber: this.testNumber });
+
+			li = document.createElement( "li" );
+			li.appendChild( b );
+			li.appendChild( a );
+			li.className = "running";
+			li.id = this.id = "qunit-test-output" + testId++;
+
+			tests.appendChild( li );
+		}
+	},
+
+	setup: function() {
+		if (
+			// Emit moduleStart when we're switching from one module to another
+			this.module !== config.previousModule ||
+				// They could be equal (both undefined) but if the previousModule property doesn't
+				// yet exist it means this is the first test in a suite that isn't wrapped in a
+				// module, in which case we'll just emit a moduleStart event for 'undefined'.
+				// Without this, reporters can get testStart before moduleStart  which is a problem.
+				!hasOwn.call( config, "previousModule" )
+		) {
+			if ( hasOwn.call( config, "previousModule" ) ) {
+				runLoggingCallbacks( "moduleDone", {
+					name: config.previousModule,
+					failed: config.moduleStats.bad,
+					passed: config.moduleStats.all - config.moduleStats.bad,
+					total: config.moduleStats.all
+				});
+			}
+			config.previousModule = this.module;
+			config.moduleStats = { all: 0, bad: 0 };
+			runLoggingCallbacks( "moduleStart", {
+				name: this.module
+			});
+		}
+
+		config.current = this;
+
+		this.testEnvironment = extend({
+			setup: function() {},
+			teardown: function() {}
+		}, this.moduleTestEnvironment );
+
+		this.started = +new Date();
+		runLoggingCallbacks( "testStart", {
+			name: this.name,
+			module: this.module
+		});
+
+		if ( !config.pollution ) {
+			saveGlobal();
+		}
+		if ( config.notrycatch ) {
+			this.testEnvironment.setup.call( this.testEnvironment, this.assert );
+			return;
+		}
+		try {
+			this.testEnvironment.setup.call( this.testEnvironment, this.assert );
+		} catch ( e ) {
+			QUnit.pushFailure( "Setup failed on " + this.name + ": " + ( e.message || e ), extractStacktrace( e, 1 ) );
+		}
+	},
+
+	run: function() {
+		config.current = this;
+
+		var running = id( "qunit-testresult" );
+
+		if ( running ) {
+			running.innerHTML = "Running: <br/>" + this.nameHtml;
+		}
+
+		this.callbackStarted = +new Date();
+
+		if ( config.notrycatch ) {
+			this.callback.call( this.testEnvironment, this.assert );
+			this.callbackRuntime = +new Date() - this.callbackStarted;
+			return;
+		}
+
+		try {
+			this.callback.call( this.testEnvironment, this.assert );
+			this.callbackRuntime = +new Date() - this.callbackStarted;
+		} catch( e ) {
+			this.callbackRuntime = +new Date() - this.callbackStarted;
+
+			QUnit.pushFailure( "Died on test #" + (this.assertions.length + 1) + " " + this.stack + ": " + ( e.message || e ), extractStacktrace( e, 0 ) );
+			// else next test will carry the responsibility
+			saveGlobal();
+
+			// Restart the tests if they're blocking
+			if ( config.blocking ) {
+				QUnit.start();
+			}
+		}
+	},
+
+	teardown: function() {
+		config.current = this;
+		if ( config.notrycatch ) {
+			if ( typeof this.callbackRuntime === "undefined" ) {
+				this.callbackRuntime = +new Date() - this.callbackStarted;
+			}
+			this.testEnvironment.teardown.call( this.testEnvironment, this.assert );
+			return;
+		} else {
+			try {
+				this.testEnvironment.teardown.call( this.testEnvironment, this.assert );
+			} catch( e ) {
+				QUnit.pushFailure( "Teardown failed on " + this.name + ": " + ( e.message || e ), extractStacktrace( e, 1 ) );
+			}
+		}
+		checkPollution();
+	},
+
+	finish: function() {
+		config.current = this;
+		if ( config.requireExpects && this.expected === null ) {
+			QUnit.pushFailure( "Expected number of assertions to be defined, but expect() was not called.", this.stack );
+		} else if ( this.expected !== null && this.expected !== this.assertions.length ) {
+			QUnit.pushFailure( "Expected " + this.expected + " assertions, but " + this.assertions.length + " were run", this.stack );
+		} else if ( this.expected === null && !this.assertions.length ) {
+			QUnit.pushFailure( "Expected at least one assertion, but none were run - call expect(0) to accept zero assertions.", this.stack );
+		}
+
+		var i, assertion, a, b, time, li, ol,
+			test = this,
+			good = 0,
+			bad = 0,
+			tests = id( "qunit-tests" );
+
+		this.runtime = +new Date() - this.started;
+		config.stats.all += this.assertions.length;
+		config.moduleStats.all += this.assertions.length;
+
+		if ( tests ) {
+			ol = document.createElement( "ol" );
+			ol.className = "qunit-assert-list";
+
+			for ( i = 0; i < this.assertions.length; i++ ) {
+				assertion = this.assertions[i];
+
+				li = document.createElement( "li" );
+				li.className = assertion.result ? "pass" : "fail";
+				li.innerHTML = assertion.message || ( assertion.result ? "okay" : "failed" );
+				ol.appendChild( li );
+
+				if ( assertion.result ) {
+					good++;
+				} else {
+					bad++;
+					config.stats.bad++;
+					config.moduleStats.bad++;
+				}
+			}
+
+			// store result when possible
+			if ( QUnit.config.reorder && defined.sessionStorage ) {
+				if ( bad ) {
+					sessionStorage.setItem( "qunit-test-" + this.module + "-" + this.name, bad );
+				} else {
+					sessionStorage.removeItem( "qunit-test-" + this.module + "-" + this.name );
+				}
+			}
+
+			if ( bad === 0 ) {
+				addClass( ol, "qunit-collapsed" );
+			}
+
+			// `b` initialized at top of scope
+			b = document.createElement( "strong" );
+			b.innerHTML = this.nameHtml + " <b class='counts'>(<b class='failed'>" + bad + "</b>, <b class='passed'>" + good + "</b>, " + this.assertions.length + ")</b>";
+
+			addEvent(b, "click", function() {
+				var next = b.parentNode.lastChild,
+					collapsed = hasClass( next, "qunit-collapsed" );
+				( collapsed ? removeClass : addClass )( next, "qunit-collapsed" );
+			});
+
+			addEvent(b, "dblclick", function( e ) {
+				var target = e && e.target ? e.target : window.event.srcElement;
+				if ( target.nodeName.toLowerCase() === "span" || target.nodeName.toLowerCase() === "b" ) {
+					target = target.parentNode;
+				}
+				if ( window.location && target.nodeName.toLowerCase() === "strong" ) {
+					window.location = QUnit.url({ testNumber: test.testNumber });
+				}
+			});
+
+			// `time` initialized at top of scope
+			time = document.createElement( "span" );
+			time.className = "runtime";
+			time.innerHTML = this.runtime + " ms";
+
+			// `li` initialized at top of scope
+			li = id( this.id );
+			li.className = bad ? "fail" : "pass";
+			li.removeChild( li.firstChild );
+			a = li.firstChild;
+			li.appendChild( b );
+			li.appendChild( a );
+			li.appendChild( time );
+			li.appendChild( ol );
+
+		} else {
+			for ( i = 0; i < this.assertions.length; i++ ) {
+				if ( !this.assertions[i].result ) {
+					bad++;
+					config.stats.bad++;
+					config.moduleStats.bad++;
+				}
+			}
+		}
+
+		runLoggingCallbacks( "testDone", {
+			name: this.name,
+			module: this.module,
+			failed: bad,
+			passed: this.assertions.length - bad,
+			total: this.assertions.length,
+			duration: this.runtime
+		});
+
+		QUnit.reset();
+
+		config.current = undefined;
+	},
+
+	queue: function() {
+		var bad,
+			test = this;
+
+		synchronize(function() {
+			test.init();
+		});
+		function run() {
+			// each of these can by async
+			synchronize(function() {
+				test.setup();
+			});
+			synchronize(function() {
+				test.run();
+			});
+			synchronize(function() {
+				test.teardown();
+			});
+			synchronize(function() {
+				test.finish();
+			});
+		}
+
+		// `bad` initialized at top of scope
+		// defer when previous test run passed, if storage is available
+		bad = QUnit.config.reorder && defined.sessionStorage &&
+			+sessionStorage.getItem( "qunit-test-" + this.module + "-" + this.name );
+
+		if ( bad ) {
+			run();
+		} else {
+			synchronize( run, true );
+		}
+	}
+};
+
+/**
+ * @class QUnit.Assertion
+ * @alternateClassName Assertion
+ *
+ * @constructor
+ * @param {Test} test The Test instance these assertions
+ *  will belong to.
+ */
+function Assertion( test ) {
+
+	/**
+	 * The Test instance this Assertion object belongs to.
+	 *
+	 * @private
+	 * @property
+	 */
+	this.test = test;
+
+	/**
+	 * Public and detachable version of Test#async.
+	 *
+	 * @inheritdoc Test#async
+	 */
+	this.async = function () {
+		return test.async.apply( test, arguments );
+	};
+
+	/**
+	 * Public and detachable version of Test#expect.
+	 *
+	 * @inheritdoc Test#expect
+	 */
+	this.expect = function () {
+		return test.expect.apply( test, arguments );
+	};
+}
+
+Assertion.prototype = {
+	constructor: Assertion,
+
+	/**
+	 * Assert an arbitrary javascript expression to return true.
+	 *
+	 * The return value is casted to a boolean so any value that casts to boolean
+	 * true is also considered a success.
+	 *
+	 * Example:
+	 *
+	 *     assert.ok( "asdfasdf".length > 5, "String is long enough" );
+	 *
+	 * @method
+	 * @param {boolean} result
+	 * @param {string} [message]
+	 */
+	ok: function( result, message ) {
+		this.test.push({
+			result: !!result,
+			message: message
+		});
+	},
+
+	/**
+	 * Assert that two values are equal (compared with javascript `==` operator).
+	 *
+	 * Example:
+	 *
+	 *     assert.equal( sum( 1, 2, 3 ), 6, "sum() returns the total of all numbers" );
+	 *
+	 * @method
+	 * @param {Mixed} actual
+	 * @param {Mixed} expected
+	 * @param {string} [message]
+	 */
+	equal: function( actual, expected, message ) {
+		/*jshint eqeqeq:false */
+		this.test.push({
+			result: expected == actual,
+			actual: actual,
+			expected: expected,
+			message: message
+		});
+	},
+
+	/**
+	 * Assert that two values are strictly equal (compared with javascript `===` operator).
+	 *
+	 * @method
+	 * @param {Mixed} actual
+	 * @param {Mixed} expected
+	 * @param {string} [message]
+	 */
+	strictEqual: function( actual, expected, message ) {
+		this.test.push({
+			result: expected === actual,
+			actual: actual,
+			expected: expected,
+			message: message
+		});
+	},
+
+	/**
+	 * Assert that two objects are recursively equal.
+	 *
+	 * @method
+	 * @param {Object} actual
+	 * @param {Object} expected
+	 * @param {string} [message]
+	 */
+	deepEqual: function( actual, expected, message ) {
+		this.test.push({
+			result: QUnit.equiv( actual, expected ),
+			actual: actual,
+			expected: expected,
+			message: message
+		});
+	},
+
+	/**
+	 * Assert that the own enumerable properties of two objects are recursively equal.
+	 *
+	 * @method
+	 * @param {Mixed} actual
+	 * @param {Mixed} expected
+	 * @param {string} [message]
+	 */
+	propEqual: function( actual, expected, message ) {
+		actual = objectValues( actual );
+		expected = objectValues( expected );
+
+		this.test.push({
+			result: QUnit.equiv( actual, expected ),
+			actual: actual,
+			expected: expected,
+			message: message
+		} );
+	},
+
+	/**
+	 * Assert that the function block throws an exception upon execution.
+	 *
+	 * @method
+	 * @param {Function} block
+	 * @param {Mixed} expected
+	 * @param {string} [message]
+	 */
+	"throws": function( block, expected, message ) {
+		var actual,
+			ok = false;
+
+		// 'expected' is optional
+		if ( typeof expected === "string" ) {
+			message = expected;
+			expected = null;
+		}
+
+		config.current.ignoreGlobalErrors = true;
+		try {
+			block.call( config.current.testEnvironment );
+		} catch (e) {
+			actual = e;
+		}
+		config.current.ignoreGlobalErrors = false;
+
+		if ( actual ) {
+			// we don't want to validate thrown error
+			if ( !expected ) {
+				ok = true;
+				expected = null;
+			// expected is a regexp
+			} else if ( QUnit.objectType( expected ) === "regexp" ) {
+				ok = expected.test( errorString( actual ) );
+			// expected is a constructor
+			} else if ( actual instanceof expected ) {
+				ok = true;
+			// expected is a validation function which returns true is validation passed
+			} else if ( expected.call( {}, actual ) === true ) {
+				expected = null;
+				ok = true;
+			}
+
+			this.test.push({
+				result: ok,
+				actual: actual,
+				expected: expected,
+				message: message
+			} );
+		} else {
+			QUnit.pushFailure( message, null, "No exception was thrown." );
+		}
+	}
+};
 
 // for CommonJS environments, export everything
 if ( typeof exports !== "undefined" ) {
