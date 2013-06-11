@@ -168,11 +168,11 @@ Test.prototype = {
 			saveGlobal();
 		}
 		if ( config.notrycatch ) {
-			this.testEnvironment.setup.call( this.testEnvironment );
+			this.testEnvironment.setup.call( this.testEnvironment, QUnit.assert );
 			return;
 		}
 		try {
-			this.testEnvironment.setup.call( this.testEnvironment );
+			this.testEnvironment.setup.call( this.testEnvironment, QUnit.assert );
 		} catch( e ) {
 			QUnit.pushFailure( "Setup failed on " + this.testName + ": " + ( e.message || e ), extractStacktrace( e, 1 ) );
 		}
@@ -220,11 +220,11 @@ Test.prototype = {
 			if ( typeof this.callbackRuntime === "undefined" ) {
 				this.callbackRuntime = +new Date() - this.callbackStarted;
 			}
-			this.testEnvironment.teardown.call( this.testEnvironment );
+			this.testEnvironment.teardown.call( this.testEnvironment, QUnit.assert );
 			return;
 		} else {
 			try {
-				this.testEnvironment.teardown.call( this.testEnvironment );
+				this.testEnvironment.teardown.call( this.testEnvironment, QUnit.assert );
 			} catch( e ) {
 				QUnit.pushFailure( "Teardown failed on " + this.testName + ": " + ( e.message || e ), extractStacktrace( e, 1 ) );
 			}
