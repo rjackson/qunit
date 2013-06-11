@@ -1,4 +1,4 @@
-/**
+/*!
  * QUnit v1.12.0pre - A JavaScript Unit Testing Framework
  *
  * http://qunitjs.com
@@ -10,6 +10,12 @@
 
 (function( window ) {
 
+/**
+ * Namespace for QUnit.
+ *
+ * @class QUnit
+ * @singleton
+ */
 var QUnit,
 	assert,
 	config,
@@ -33,6 +39,7 @@ var QUnit,
 			}
 		}())
 	},
+
 	/**
 	 * Provides a normalized error string, correcting an issue
 	 * with IE 7 (and prior) where Error.prototype.toString is
@@ -40,8 +47,10 @@ var QUnit,
 	 *
 	 * Based on http://es5.github.com/#x15.11.4.4
 	 *
-	 * @param {String|Error} error
-	 * @return {String} error message
+	 * @method errorString
+	 * @private
+	 * @param {string|Error} error
+	 * @return {string} error message
 	 */
 	errorString = function( error ) {
 		var name, message,
@@ -62,10 +71,13 @@ var QUnit,
 			return errorString;
 		}
 	},
+
 	/**
 	 * Makes a clone of an object using only Array or Object as base,
 	 * and copies over the own enumerable properties.
 	 *
+	 * @method objectValues
+	 * @private
 	 * @param {Object} obj
 	 * @return {Object} New object with only the own properties (recursively).
 	 */
@@ -83,8 +95,29 @@ var QUnit,
 		return vals;
 	};
 
+/**
+ * A Test object represents a test in the test suite. It contains
+ * assertions and can be grouped with one or more other tests
+ * by being associated wth a module.
+ *
+ * @class QUnit.Test
+ * @alternateClassName Test
+ * @private
+ *
+ * @constructor
+ * @param {Object} settings
+ * @param {string} settings.nameHtml
+ * @param {string} settings.testName
+ * @param {number|null} settings.expected
+ * @param {boolean} settings.async
+ * @param {Function} settings.callback
+ * @param {string|null} settings.module
+ * @param {Object} settings.moduleTestEnvironment
+ * @param {string} settings.stack
+ */
 function Test( settings ) {
 	extend( this, settings );
+
 	this.assertions = [];
 	this.testNumber = ++Test.count;
 }
@@ -158,7 +191,8 @@ Test.prototype = {
 		/**
 		 * Expose the current test environment.
 		 *
-		 * @deprecated since 1.12.0: Use QUnit.config.current.testEnvironment instead.
+		 * @member QUnit
+		 * @deprecated since 1.12.0: Use `QUnit.config.current.testEnvironment` instead.
 		 */
 		QUnit.current_testEnvironment = this.testEnvironment;
 
@@ -380,6 +414,10 @@ Test.prototype = {
 	}
 };
 
+/**
+ * @class QUnit
+ */
+
 // Root QUnit object.
 // `QUnit` initialized at top of scope
 QUnit = {
@@ -499,56 +537,79 @@ QUnit = {
 };
 
 // `assert` initialized at top of scope
-// Assert helpers
-// All of these must either call QUnit.push() or manually do:
-// - runLoggingCallbacks( "log", .. );
-// - config.current.assertions.push({ .. });
-// We attach it to the QUnit object *after* we expose the public API,
-// otherwise `assert` will become a global variable in browsers (#341).
+
+/**
+ * Assert helpers.
+ *
+ * All of these must either call QUnit.push() or manually do:
+ *
+ * - `runLoggingCallbacks( "log", .. );`
+ * - `config.current.assertions.push({ .. });`
+ *
+ * These are attached to QUnit object *after* we expose the public API,
+ * otherwise `assert` will become a global variable in browsers (#341).
+ *
+ * @class QUnit.assert
+ * @singleton
+ */
 assert = {
+
 	/**
-	 * Asserts rough true-ish result.
-	 * @name ok
-	 * @function
-	 * @example ok( "asdfasdf".length > 5, "There must be at least 5 chars" );
+	 * Assert an arbitrary javascript expression to return true.
+	 *
+	 * The return value is casted to a boolean so any value that casts to boolean
+	 * true is also considered a success.
+	 *
+	 * Example:
+	 *
+	 *     assert.ok( "asdfasdf".length > 5, "String is long enough" );
+	 *
+	 * @method
+	 * @param {boolean} result
+	 * @param {string} [message]
 	 */
-	ok: function( result, msg ) {
+	ok: function( result, message ) {
 		if ( !config.current ) {
 			throw new Error( "ok() assertion outside test context, was " + sourceFromStacktrace(2) );
 		}
 		result = !!result;
-		msg = msg || (result ? "okay" : "failed" );
+		message = message || (result ? "okay" : "failed" );
 
 		var source,
 			details = {
 				module: config.current.module,
 				name: config.current.testName,
 				result: result,
-				message: msg
+				message: message
 			};
 
-		msg = "<span class='test-message'>" + escapeText( msg ) + "</span>";
+		message = "<span class='test-message'>" + escapeText( message ) + "</span>";
 
 		if ( !result ) {
 			source = sourceFromStacktrace( 2 );
 			if ( source ) {
 				details.source = source;
-				msg += "<table><tr class='test-source'><th>Source: </th><td><pre>" + escapeText( source ) + "</pre></td></tr></table>";
+				message += "<table><tr class='test-source'><th>Source: </th><td><pre>" + escapeText( source ) + "</pre></td></tr></table>";
 			}
 		}
 		runLoggingCallbacks( "log", QUnit, details );
 		config.current.assertions.push({
 			result: result,
-			message: msg
+			message: message
 		});
 	},
 
 	/**
-	 * Assert that the first two arguments are equal, with an optional message.
-	 * Prints out both actual and expected values.
-	 * @name equal
-	 * @function
-	 * @example equal( format( "Received {0} bytes.", 2), "Received 2 bytes.", "format() replaces {0} with next argument" );
+	 * Assert that two values are equal (compared with javascript `==` operator).
+	 *
+	 * Example:
+	 *
+	 *     assert.equal( sum( 1, 2, 3 ), 6, "sum() returns the total of all numbers" );
+	 *
+	 * @method
+	 * @param {Mixed} actual
+	 * @param {Mixed} expected
+	 * @param {string} [message]
 	 */
 	equal: function( actual, expected, message ) {
 		/*jshint eqeqeq:false */
@@ -556,17 +617,26 @@ assert = {
 	},
 
 	/**
-	 * @name notEqual
-	 * @function
+	 * Negated #equal.
+	 *
+	 * @method
+	 * @param {Mixed} actual
+	 * @param {Mixed} expected
+	 * @param {string} [message]
 	 */
 	notEqual: function( actual, expected, message ) {
 		/*jshint eqeqeq:false */
 		QUnit.push( expected != actual, actual, expected, message );
 	},
 
+
 	/**
-	 * @name propEqual
-	 * @function
+	 * Assert that the own enumerable properties of two objects are recursively equal.
+	 *
+	 * @method
+	 * @param {Mixed} actual
+	 * @param {Mixed} expected
+	 * @param {string} [message]
 	 */
 	propEqual: function( actual, expected, message ) {
 		actual = objectValues(actual);
@@ -575,8 +645,12 @@ assert = {
 	},
 
 	/**
-	 * @name notPropEqual
-	 * @function
+	 * Negated #propEqual.
+	 *
+	 * @method
+	 * @param {Mixed} actual
+	 * @param {Mixed} expected
+	 * @param {string} [message]
 	 */
 	notPropEqual: function( actual, expected, message ) {
 		actual = objectValues(actual);
@@ -585,37 +659,61 @@ assert = {
 	},
 
 	/**
-	 * @name deepEqual
-	 * @function
+	 * Assert that two objects are recursively equal.
+	 *
+	 * @method
+	 * @param {Object} actual
+	 * @param {Object} expected
+	 * @param {string} [message]
 	 */
 	deepEqual: function( actual, expected, message ) {
 		QUnit.push( QUnit.equiv(actual, expected), actual, expected, message );
 	},
 
 	/**
-	 * @name notDeepEqual
-	 * @function
+	 * Negated #deepEqual.
+	 *
+	 * @method
+	 * @param {Mixed} actual
+	 * @param {Mixed} expected
+	 * @param {string} [message]
 	 */
 	notDeepEqual: function( actual, expected, message ) {
 		QUnit.push( !QUnit.equiv(actual, expected), actual, expected, message );
 	},
 
 	/**
-	 * @name strictEqual
-	 * @function
+	 * Assert that two values are strictly equal (compared with javascript `===` operator).
+	 *
+	 * @method
+	 * @param {Mixed} actual
+	 * @param {Mixed} expected
+	 * @param {string} [message]
 	 */
 	strictEqual: function( actual, expected, message ) {
 		QUnit.push( expected === actual, actual, expected, message );
 	},
 
 	/**
-	 * @name notStrictEqual
-	 * @function
+	 * Negated #strictEqual.
+	 *
+	 * @method
+	 * @param {Mixed} actual
+	 * @param {Mixed} expected
+	 * @param {string} [message]
 	 */
 	notStrictEqual: function( actual, expected, message ) {
 		QUnit.push( expected !== actual, actual, expected, message );
 	},
 
+	/**
+	 * Assert that the function block throws an exception upon execution.
+	 *
+	 * @method
+	 * @param {Function} block
+	 * @param {RegExp|Function} expected
+	 * @param {string} [message]
+	 */
 	"throws": function( block, expected, message ) {
 		var actual,
 			expectedOutput = expected,
@@ -660,25 +758,30 @@ assert = {
 };
 
 /**
- * @deprecated since 1.8.0
- * Kept assertion helpers in root for backwards compatibility.
+ * @class QUnit
  */
+
+// Assertion helpers in root for backwards compatibility.
+// @deprecated since 1.8.0
 extend( QUnit, assert );
 
 /**
+ * Alias to QUnit.assert#throws for backwards compatibility.
  * @deprecated since 1.9.0
- * Kept root "raises()" for backwards compatibility.
- * (Note that we don't introduce assert.raises).
  */
 QUnit.raises = assert[ "throws" ];
 
 /**
  * @deprecated since 1.0.0, replaced with error pushes since 1.3.0
- * Kept to avoid TypeErrors for undefined methods.
  */
 QUnit.equals = function() {
+	// Keep to avoid TypeErrors for undefined methods.
 	QUnit.push( false, false, false, "QUnit.equals has been deprecated since 2009 (e88049a0), use QUnit.equal instead" );
 };
+
+/**
+ * @deprecated since 1.0.0, replaced with error pushes since 1.3.0
+ */
 QUnit.same = function() {
 	QUnit.push( false, false, false, "QUnit.same has been deprecated since 2009 (e88049a0), use QUnit.deepEqual instead" );
 };
@@ -1015,13 +1118,11 @@ extend( QUnit, {
 	// load, equiv, jsDump, diff: Attached later
 });
 
-/**
- * @deprecated: Created for backwards compatibility with test runner that set the hook function
- * into QUnit.{hook}, instead of invoking it and passing the hook function.
- * QUnit.constructor is set to the empty F() above so that we can add to it's prototype here.
- * Doing this allows us to tell if the following methods have been overwritten on the actual
- * QUnit object.
- */
+// @deprecated: Created for backwards compatibility with test runner that set the hook function
+// into QUnit.{hook}, instead of invoking it and passing the hook function.
+// QUnit.constructor is set to the empty F() above so that we can add to it's prototype here.
+// Doing this allows us to tell if the following methods have been overwritten on the actual
+// QUnit object.
 extend( QUnit.constructor.prototype, {
 
 	// Logging callbacks; all receive a single argument with the listed properties
@@ -1803,14 +1904,16 @@ QUnit.equiv = (function() {
 }());
 
 /**
- * jsDump Copyright (c) 2008 Ariel Flesler - aflesler(at)gmail(dot)com |
- * http://flesler.blogspot.com Licensed under BSD
- * (http://www.opensource.org/licenses/bsd-license.php) Date: 5/15/2008
+ * Advanced and extensible data dumping for Javascript.
  *
- * @projectDescription Advanced and extensible data dumping for Javascript.
- * @version 1.0.0
- * @author Ariel Flesler
- * @link {http://flesler.blogspot.com/2008/05/jsdump-pretty-dump-of-any-javascript.html}
+ * jsDump v1.0.0 (2008-05-15)
+ *
+ * - Copyright (c) 2008 Ariel Flesler - aflesler(at)gmail(dot)com <http://flesler.blogspot.com>
+ * - Licensed under [BSD](http://www.opensource.org/licenses/bsd-license.php)
+ * - <http://flesler.blogspot.com/2008/05/jsdump-pretty-dump-of-any-javascript.html>
+ *
+ * @class
+ * @singleton
  */
 QUnit.jsDump = (function() {
 	function quote( str ) {
@@ -1843,7 +1946,15 @@ QUnit.jsDump = (function() {
 
 	var reName = /^function (\w+)/,
 		jsDump = {
-			// type is used mostly internally, you can fix a (custom)type in advance
+			/**
+			 * Get a parser for the given value.
+			 *
+			 * @method
+			 * @param {Mixed} obj
+			 * @param {string} type Type is used mostly internally, you can fix a (custom)type in advance
+			 * @param {Array} [stack]
+			 * @return parser
+			 */
 			parse: function( obj, type, stack ) {
 				stack = stack || [ ];
 				var inStack, res,
@@ -1863,6 +1974,7 @@ QUnit.jsDump = (function() {
 				}
 				return ( type === "string" ) ? parser : this.parsers.error;
 			},
+
 			typeOf: function( obj ) {
 				var type;
 				if ( obj === null ) {
@@ -1915,16 +2027,27 @@ QUnit.jsDump = (function() {
 			down: function( a ) {
 				this.depth -= a || 1;
 			},
+
+			/**
+			 * Register a parser in jsDump.
+			 *
+			 * @param {string} name
+			 * @param {string|Function} parser
+			 */
 			setParser: function( name, parser ) {
 				this.parsers[name] = parser;
 			},
+
 			// The next 3 are exposed so you can use them
 			quote: quote,
 			literal: literal,
 			join: join,
 			//
 			depth: 1,
-			// This is the list of parsers, to modify them, use jsDump.setParser
+
+			/**
+			 * List of parsers. To modify them, use #setParser.
+			 */
 			parsers: {
 				window: "[Window]",
 				document: "[Document]",
