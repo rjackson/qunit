@@ -1,11 +1,13 @@
 /* eslint-env node */
 
 var babel = require( "rollup-plugin-babel" );
+var resolve = require( "rollup-plugin-node-resolve" );
 
 module.exports = {
 	format: "iife",
 	exports: "none",
 	plugins: [
+		resolve( { modulesOnly: true } ),
 		babel( {
 			exclude: "node_modules/**"
 		} )
